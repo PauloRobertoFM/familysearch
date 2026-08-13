@@ -35,6 +35,8 @@ export async function renderPersonView(container, personId) {
   const vitalsSaved = h("span", { class: "hint save-hint", id: "vitals-saved" });
 
   async function saveField(patch) {
+    const unchanged = Object.entries(patch).every(([key, value]) => (person[key] || "") === value);
+    if (unchanged) return;
     Object.assign(person, patch);
     await updatePerson(person.id, patch);
     nameHeading.textContent = fullName(person);
