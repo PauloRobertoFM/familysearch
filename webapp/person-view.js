@@ -2,6 +2,7 @@ import { getRelatives, updatePerson, VALIDATION_STATUSES, VALIDATION_LABELS } fr
 import { personCard } from "./cards.js";
 import { fullName } from "./gedcom.js";
 import { h, clear } from "./dom.js";
+import { invalidatePeopleCache } from "./tree-view.js";
 
 export async function renderPersonView(container, personId) {
   clear(container);
@@ -19,28 +20,60 @@ export async function renderPersonView(container, personId) {
 
   clear(container);
 
+  const nameHeading = h("h1", {}, fullName(person));
   container.appendChild(
     h(
       "div",
       { class: "ficha-header" },
       h("a", { class: "back-link", href: `#/tree/${person.id}` }, "← Ver na árvore"),
-      h("h1", {}, fullName(person)),
+      nameHeading,
       h("div", { class: "hint" }, `#${person.id}`)
     )
   );
 
   const vitals = section("Sinais vitais");
-  vitals.appendChild(
-    fieldGrid([
-      ["Sexo", sexLabel(person.sex)],
-      ["Nascimento", [person.birthDate, person.birthPlace].filter(Boolean).join(" — ") || "—"],
-      [
-        "Falecimento",
-        [person.deathDate, person.deathPlace].filter(Boolean).join(" — ") ||
-          (person.deathDate || person.deathPlace ? "" : "Vivo(a) / não registrado"),
-      ],
-    ])
+  const vitalsSaved = h("span", { class: "hint save-hint", id: "vitals-saved" });
+
+  async function saveField(patch) {
+    Object.assign(person, patch);
+    await updatePerson(person.id, patch);
+    nameHeading.textContent = fullName(person);
+    invalidatePeopleCache();
+    flashSaved(vitalsSaved);
+  }
+
+  const givenInput = editableText(person.givenName, (v) => saveField({ givenName: v }));
+  const surnameInput = editableText(person.surname, (v) => saveField({ surname: v }));
+
+  const sexSelect = h(
+    "select",
+    { class: "field-input" },
+    h("option", { value: "" }, "Não informado"),
+    h("option", { value: "M" }, "Masculino"),
+    h("option", { value: "F" }, "Feminino")
   );
+  sexSelect.value = person.sex || "";
+  sexSelect.addEventListener("change", (e) => saveField({ sex: e.target.value }));
+
+  const birthDateInput = editableText(person.birthDate, (v) => saveField({ birthDate: v }), "ex: 12 JAN 1950");
+  const birthPlaceInput = editableText(person.birthPlace, (v) => saveField({ birthPlace: v }), "cidade, estado, país");
+  const deathDateInput = editableText(person.deathDate, (v) => saveField({ deathDate: v }), "deixe em branco se vivo(a)");
+  const deathPlaceInput = editableText(person.deathPlace, (v) => saveField({ deathPlace: v }));
+
+  vitals.appendChild(
+    h(
+      "div",
+      { class: "field-grid" },
+      fieldRow("Nome", givenInput),
+      fieldRow("Sobrenome", surnameInput),
+      fieldRow("Sexo", sexSelect),
+      fieldRow("Data de nascimento", birthDateInput),
+      fieldRow("Local de nascimento", birthPlaceInput),
+      fieldRow("Data de falecimento", deathDateInput),
+      fieldRow("Local de falecimento", deathPlaceInput)
+    )
+  );
+  vitals.appendChild(vitalsSaved);
   container.appendChild(vitals);
 
   const validation = section("Status de validação");
@@ -111,24 +144,19 @@ function section(title) {
   return h("section", { class: "card-section" }, h("h2", {}, title));
 }
 
-function fieldGrid(pairs) {
-  return h(
-    "div",
-    { class: "field-grid" },
-    ...pairs.map(([label, value]) =>
-      h("div", { class: "field-item" }, h("div", { class: "field-label" }, label), h("div", { class: "field-value" }, value))
-    )
-  );
+function fieldRow(label, inputEl) {
+  return h("div", { class: "field-item" }, h("div", { class: "field-label" }, label), inputEl);
+}
+
+function editableText(value, onSave, placeholder) {
+  const input = h("input", { type: "text", class: "field-input", placeholder: placeholder || "" });
+  input.value = value || "";
+  input.addEventListener("blur", () => onSave(input.value.trim()));
+  return input;
 }
 
 function hint(text) {
   return h("div", { class: "hint" }, text);
-}
-
-function sexLabel(sex) {
-  if (sex === "M") return "Masculino";
-  if (sex === "F") return "Feminino";
-  return "Não informado";
 }
 
 function flashSaved(el) {

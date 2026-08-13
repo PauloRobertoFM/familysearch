@@ -90,6 +90,7 @@ textarea { width: 100%; resize: vertical; }
 .field-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .field-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
 .field-value { font-size: 0.95rem; margin-top: 2px; }
+.field-input { width: 100%; margin-top: 2px; font-size: 0.95rem; padding: 7px 10px; }
 
 .status-row { display: flex; align-items: center; gap: 10px; }
 .save-hint { min-height: 1.1em; }
