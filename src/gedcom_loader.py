@@ -45,7 +45,7 @@ class Source:
     author: str
 
 
-def _pointer_values(element, tag: str) -> list:
+def _pointer_values(element, tag: str) -> list[str]:
     return [child.get_value() for child in element.get_child_elements() if child.get_tag() == tag]
 
 
@@ -66,7 +66,7 @@ def _marriage_data(family_element) -> tuple[str, str]:
 class GedcomTree:
     """Coleção indexada de pessoas, famílias e fontes de um arquivo GEDCOM."""
 
-    def __init__(self, path: "str | Path"):
+    def __init__(self, path: str | Path):
         self.path = Path(path)
         self._parser = Parser()
         self._parser.parse_file(str(self.path))
