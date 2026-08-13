@@ -43,9 +43,13 @@ export function parseGedcom(text) {
 
   let current = null; // { type: 'INDI' | 'FAM' | 'SOUR', id }
   let level1Tag = null;
-  let nameAssigned = false; // some exports repeat "1 NAME" with just a married surname,
-  // no slashes (e.g. a second "1 NAME MIGLIOLI" after "1 NAME ADELIA /Rodrigues/") —
-  // only the first NAME line is the reliable given+surname pair, so later ones are ignored.
+  // Some exports repeat "1 NAME" with just a married surname, no slashes
+  // (e.g. a second "1 NAME MIGLIOLI" after "1 NAME ADELIA /Rodrigues/"). Track
+  // how good the name we've assigned so far is, so a later well-formed
+  // "GIVEN /SURNAME/" line can still fill in a missing name, but a bare
+  // no-slash line never overwrites one we already parsed correctly.
+  const NAME_QUALITY = { NONE: 0, BARE: 1, WELL_FORMED: 2 };
+  let nameQuality = NAME_QUALITY.NONE;
 
   for (const raw of lines) {
     const line = raw.trimEnd();
@@ -61,7 +65,7 @@ export function parseGedcom(text) {
     if (level === 0) {
       current = null;
       level1Tag = null;
-      nameAssigned = false;
+      nameQuality = NAME_QUALITY.NONE;
       if (pointer && tag === "INDI") {
         current = { type: "INDI", id: pointer };
         people.set(pointer, newPerson(pointer));
@@ -81,14 +85,15 @@ export function parseGedcom(text) {
       const p = people.get(current.id);
       if (level === 1) {
         level1Tag = tag;
-        if (tag === "NAME" && !nameAssigned) {
-          nameAssigned = true;
+        if (tag === "NAME" && nameQuality < NAME_QUALITY.WELL_FORMED) {
           const nm = value.match(/^([^/]*)\/([^/]*)\/?\s*(.*)$/);
           if (nm) {
             p.givenName = nm[1].trim();
             p.surname = nm[2].trim();
-          } else {
+            nameQuality = NAME_QUALITY.WELL_FORMED;
+          } else if (nameQuality === NAME_QUALITY.NONE) {
             p.givenName = value.trim();
+            nameQuality = NAME_QUALITY.BARE;
           }
         } else if (tag === "SEX") {
           p.sex = value.trim();
