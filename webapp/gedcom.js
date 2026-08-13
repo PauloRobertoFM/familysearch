@@ -1,7 +1,35 @@
 const LINE_RE = /^(\d+)\s+(?:(@[^@]+@)\s+)?(\S+)(?:\s+(.*))?$/;
+const NAME_RE = /^([^/]*)\/([^/]*)\/?\s*(.*)$/;
+
+// Some exports repeat "1 NAME" with just a married surname, no slashes
+// (e.g. a second "1 NAME MIGLIOLI" after "1 NAME ADELIA /Rodrigues/"). These
+// quality levels let a later well-formed "GIVEN /SURNAME/" line still fill in
+// a missing name, while a bare no-slash line never overwrites one already
+// parsed correctly.
+const NAME_QUALITY = { NONE: 0, BARE: 1, WELL_FORMED: 2 };
 
 function stripPointer(value) {
   return (value || "").replace(/@/g, "").trim();
+}
+
+/**
+ * Applies one "1 NAME" line's value to a person, honoring nameQuality so a
+ * malformed repeat never overwrites an already well-formed name. Returns the
+ * resulting quality level (unchanged if the line was ignored).
+ */
+function applyNameLine(person, value, currentQuality) {
+  if (currentQuality >= NAME_QUALITY.WELL_FORMED) return currentQuality;
+  const nm = value.match(NAME_RE);
+  if (nm) {
+    person.givenName = nm[1].trim();
+    person.surname = nm[2].trim();
+    return NAME_QUALITY.WELL_FORMED;
+  }
+  if (currentQuality === NAME_QUALITY.NONE) {
+    person.givenName = value.trim();
+    return NAME_QUALITY.BARE;
+  }
+  return currentQuality;
 }
 
 function newPerson(id) {
@@ -43,12 +71,6 @@ export function parseGedcom(text) {
 
   let current = null; // { type: 'INDI' | 'FAM' | 'SOUR', id }
   let level1Tag = null;
-  // Some exports repeat "1 NAME" with just a married surname, no slashes
-  // (e.g. a second "1 NAME MIGLIOLI" after "1 NAME ADELIA /Rodrigues/"). Track
-  // how good the name we've assigned so far is, so a later well-formed
-  // "GIVEN /SURNAME/" line can still fill in a missing name, but a bare
-  // no-slash line never overwrites one we already parsed correctly.
-  const NAME_QUALITY = { NONE: 0, BARE: 1, WELL_FORMED: 2 };
   let nameQuality = NAME_QUALITY.NONE;
 
   for (const raw of lines) {
@@ -85,16 +107,8 @@ export function parseGedcom(text) {
       const p = people.get(current.id);
       if (level === 1) {
         level1Tag = tag;
-        if (tag === "NAME" && nameQuality < NAME_QUALITY.WELL_FORMED) {
-          const nm = value.match(/^([^/]*)\/([^/]*)\/?\s*(.*)$/);
-          if (nm) {
-            p.givenName = nm[1].trim();
-            p.surname = nm[2].trim();
-            nameQuality = NAME_QUALITY.WELL_FORMED;
-          } else if (nameQuality === NAME_QUALITY.NONE) {
-            p.givenName = value.trim();
-            nameQuality = NAME_QUALITY.BARE;
-          }
+        if (tag === "NAME") {
+          nameQuality = applyNameLine(p, value, nameQuality);
         } else if (tag === "SEX") {
           p.sex = value.trim();
         } else if (tag === "FAMC") {
