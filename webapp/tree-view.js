@@ -114,6 +114,11 @@ function renderChildren(container, children, replace) {
 }
 
 let allPeopleCache = null;
+
+export function invalidatePeopleCache() {
+  allPeopleCache = null;
+}
+
 function wireSearch(header) {
   const input = header.querySelector("#tree-search-input");
   const results = header.querySelector("#tree-search-results");
@@ -130,7 +135,10 @@ function wireSearch(header) {
       .slice(0, 12);
 
     results.innerHTML = matches
-      .map((p) => `<div class="search-hit" data-id="${p.id}">${escapeHtml(fullName(p))} <span class="hint">#${p.id}</span></div>`)
+      .map((p) => {
+        const safeId = escapeHtml(p.id);
+        return `<div class="search-hit" data-id="${safeId}">${escapeHtml(fullName(p))} <span class="hint">#${safeId}</span></div>`;
+      })
       .join("");
   });
 

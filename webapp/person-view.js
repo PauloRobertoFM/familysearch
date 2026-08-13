@@ -18,10 +18,11 @@ export async function renderPersonView(container, personId) {
 
   const header = document.createElement("div");
   header.className = "ficha-header";
+  const safeId = escapeHtml(person.id);
   header.innerHTML = `
-    <a class="back-link" href="#/tree/${person.id}">← Ver na árvore</a>
+    <a class="back-link" href="#/tree/${safeId}">← Ver na árvore</a>
     <h1>${escapeHtml(fullName(person))}</h1>
-    <div class="hint">#${escapeHtml(person.id)}</div>
+    <div class="hint">#${safeId}</div>
   `;
   container.appendChild(header);
 

@@ -28,15 +28,16 @@ export function personCard(person, mode = "relative") {
   el.className = `p-card ${sexClass(person)} status-${status} ${mode === "focus" ? "is-focus" : ""}`;
   el.dataset.id = person.id;
 
+  const safeId = escapeHtml(person.id);
   el.innerHTML = `
     <div class="p-card-top">
-      <div class="p-avatar">${initials(person)}</div>
+      <div class="p-avatar">${escapeHtml(initials(person))}</div>
       <span class="status-dot" title="Status: ${VALIDATION_LABELS[status]}">${STATUS_ICON[status]}</span>
     </div>
     <div class="p-name">${escapeHtml(fullName(person))}</div>
     <div class="p-years">${escapeHtml(lifespan(person)) || "&nbsp;"}</div>
-    <div class="p-id">#${escapeHtml(person.id)}</div>
-    ${mode === "relative" ? `<a class="p-ficha-link" href="#/person/${person.id}">Ver ficha →</a>` : ""}
+    <div class="p-id">#${safeId}</div>
+    ${mode === "relative" ? `<a class="p-ficha-link" href="#/person/${safeId}">Ver ficha →</a>` : ""}
   `;
 
   if (mode === "relative") {

@@ -1,4 +1,5 @@
 import { importGedcomText, getMeta, getCounts } from "./store.js";
+import { invalidatePeopleCache } from "./tree-view.js";
 
 export async function renderImportView(container) {
   const counts = await getCounts();
@@ -29,6 +30,7 @@ export async function renderImportView(container) {
     try {
       const text = await file.text();
       const result = await importGedcomText(text);
+      invalidatePeopleCache();
       status.textContent = `Importado: ${result.peopleCount} pessoas, ${result.familiesCount} famílias.`;
       const root = await getMeta("rootPersonId");
       if (root) setTimeout(() => (window.location.hash = `#/tree/${root}`), 700);
@@ -44,6 +46,7 @@ export async function renderImportView(container) {
       const res = await fetch("./sample/familia_miglioli.ged");
       const text = await res.text();
       const result = await importGedcomText(text);
+      invalidatePeopleCache();
       status.textContent = `Importado: ${result.peopleCount} pessoas, ${result.familiesCount} famílias.`;
       const root = await getMeta("rootPersonId");
       if (root) setTimeout(() => (window.location.hash = `#/tree/${root}`), 700);

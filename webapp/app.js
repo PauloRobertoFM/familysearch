@@ -1,4 +1,4 @@
-import { getCounts, getMeta } from "./store.js";
+import { getCounts, getMeta, getAllPeople } from "./store.js";
 import { renderTreeView } from "./tree-view.js";
 import { renderPersonView } from "./person-view.js";
 import { renderImportView } from "./import-view.js";
@@ -22,8 +22,18 @@ async function route() {
     window.location.hash = "#/import";
     return;
   }
-  const root = await getMeta("rootPersonId");
-  window.location.hash = `#/tree/${root || ""}`;
+
+  let root = await getMeta("rootPersonId");
+  if (!root) {
+    const [first] = await getAllPeople();
+    root = first?.id;
+  }
+
+  if (!root) {
+    window.location.hash = "#/import";
+    return;
+  }
+  window.location.hash = `#/tree/${root}`;
 }
 
 function setActiveNav(page) {

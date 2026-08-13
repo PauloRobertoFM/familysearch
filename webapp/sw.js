@@ -1,4 +1,4 @@
-const CACHE_NAME = "genealogia-v1";
+const CACHE_NAME = "genealogia-v2";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -33,20 +33,13 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Cache-first over the precached CORE_ASSETS only: every asset the app needs
+// offline is already in CORE_ASSETS, so there is no dynamic write-back here
+// (which would otherwise let the runtime cache grow without bound). A GET
+// that isn't in the cache just falls through to the network as normal.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
+    caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
 });
