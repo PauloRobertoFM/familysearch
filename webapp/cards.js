@@ -1,5 +1,6 @@
 import { fullName, lifespan } from "./gedcom.js";
 import { VALIDATION_LABELS } from "./store.js";
+import { h } from "./dom.js";
 
 function initials(person) {
   const parts = `${person.givenName} ${person.surname}`.trim().split(/\s+/).filter(Boolean);
@@ -23,43 +24,43 @@ const STATUS_ICON = { unverified: "?", partial: "~", verified: "✓" };
  * plus an explicit link to open the ficha).
  */
 export function personCard(person, mode = "relative") {
-  const el = document.createElement("div");
   const status = person.validationStatus || "unverified";
-  el.className = `p-card ${sexClass(person)} status-${status} ${mode === "focus" ? "is-focus" : ""}`;
-  el.dataset.id = person.id;
+  const id = person.id;
 
-  const safeId = escapeHtml(person.id);
-  el.innerHTML = `
-    <div class="p-card-top">
-      <div class="p-avatar">${escapeHtml(initials(person))}</div>
-      <span class="status-dot" title="Status: ${VALIDATION_LABELS[status]}">${STATUS_ICON[status]}</span>
-    </div>
-    <div class="p-name">${escapeHtml(fullName(person))}</div>
-    <div class="p-years">${escapeHtml(lifespan(person)) || "&nbsp;"}</div>
-    <div class="p-id">#${safeId}</div>
-    ${mode === "relative" ? `<a class="p-ficha-link" href="#/person/${safeId}">Ver ficha →</a>` : ""}
-  `;
+  const cardChildren = [
+    h(
+      "div",
+      { class: "p-card-top" },
+      h("div", { class: "p-avatar" }, initials(person)),
+      h("span", { class: "status-dot", title: `Status: ${VALIDATION_LABELS[status]}` }, STATUS_ICON[status])
+    ),
+    h("div", { class: "p-name" }, fullName(person)),
+    h("div", { class: "p-years" }, lifespan(person) || " "),
+    h("div", { class: "p-id" }, `#${id}`),
+  ];
+  if (mode === "relative") {
+    cardChildren.push(h("a", { class: "p-ficha-link", href: `#/person/${id}` }, "Ver ficha →"));
+  }
+
+  const el = h(
+    "div",
+    {
+      class: `p-card ${sexClass(person)} status-${status} ${mode === "focus" ? "is-focus" : ""}`,
+      dataset: { id },
+    },
+    ...cardChildren
+  );
 
   if (mode === "relative") {
     el.addEventListener("click", (e) => {
       if (e.target.closest(".p-ficha-link")) return;
-      window.location.hash = `#/tree/${person.id}`;
+      window.location.hash = `#/tree/${id}`;
     });
   } else {
     el.addEventListener("click", () => {
-      window.location.hash = `#/person/${person.id}`;
+      window.location.hash = `#/person/${id}`;
     });
   }
 
   return el;
-}
-
-export function escapeHtml(str) {
-  return String(str ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[c]));
 }

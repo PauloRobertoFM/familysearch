@@ -1,10 +1,11 @@
-const CACHE_NAME = "genealogia-v2";
+const CACHE_NAME = "genealogia-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./db.js",
+  "./dom.js",
   "./gedcom.js",
   "./store.js",
   "./cards.js",

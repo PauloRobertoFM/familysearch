@@ -1,21 +1,30 @@
 import { exportBackup, getCounts } from "./store.js";
+import { h, clear } from "./dom.js";
 
 export async function renderExportView(container) {
   const counts = await getCounts();
-  container.innerHTML = `
-    <section class="card-section">
-      <h2>Exportar backup</h2>
-      <p class="hint">
-        ${counts.people} pessoas e ${counts.families} famílias salvas neste dispositivo.
-        Os dados ficam só no navegador deste celular — baixe um backup de vez em quando
-        (por exemplo, salvando no Google Drive) para não correr risco de perder o trabalho
-        de validação se limpar os dados do navegador ou trocar de aparelho.
-      </p>
-      <button type="button" id="download-backup">Baixar backup (.json)</button>
-    </section>
-  `;
+  clear(container);
 
-  container.querySelector("#download-backup").addEventListener("click", async () => {
+  const downloadBtn = h("button", { type: "button", id: "download-backup" }, "Baixar backup (.json)");
+
+  container.appendChild(
+    h(
+      "section",
+      { class: "card-section" },
+      h("h2", {}, "Exportar backup"),
+      h(
+        "p",
+        { class: "hint" },
+        `${counts.people} pessoas e ${counts.families} famílias salvas neste dispositivo. ` +
+          "Os dados ficam só no navegador deste celular — baixe um backup de vez em quando " +
+          "(por exemplo, salvando no Google Drive) para não correr risco de perder o trabalho " +
+          "de validação se limpar os dados do navegador ou trocar de aparelho."
+      ),
+      downloadBtn
+    )
+  );
+
+  downloadBtn.addEventListener("click", async () => {
     const backup = await exportBackup();
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

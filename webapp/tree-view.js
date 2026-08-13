@@ -1,88 +1,72 @@
 import { getRelatives, getAllPeople } from "./store.js";
-import { personCard, escapeHtml } from "./cards.js";
+import { personCard } from "./cards.js";
 import { fullName } from "./gedcom.js";
+import { h, clear } from "./dom.js";
 
 export async function renderTreeView(container, personId) {
-  container.innerHTML = `<p class="hint">Carregando árvore…</p>`;
+  clear(container);
+  container.appendChild(h("p", { class: "hint" }, "Carregando árvore…"));
 
   const data = await getRelatives(personId);
   if (!data) {
-    container.innerHTML = `<p class="hint">Pessoa não encontrada (#${escapeHtml(personId)}).</p>`;
+    clear(container);
+    container.appendChild(h("p", { class: "hint" }, `Pessoa não encontrada (#${personId}).`));
     return;
   }
 
   const { person, parents, siblings, unions } = data;
   const activeUnion = unions[0] || { spouse: null, children: [], family: null };
 
-  container.innerHTML = "";
+  clear(container);
 
-  const header = document.createElement("div");
-  header.className = "tree-search";
-  header.innerHTML = `
-    <input type="search" id="tree-search-input" placeholder="Buscar pessoa por nome…" autocomplete="off" />
-    <div id="tree-search-results" class="search-results"></div>
-  `;
+  const searchResults = h("div", { class: "search-results", id: "tree-search-results" });
+  const searchInput = h("input", {
+    type: "search",
+    id: "tree-search-input",
+    placeholder: "Buscar pessoa por nome…",
+    autocomplete: "off",
+  });
+  const header = h("div", { class: "tree-search" }, searchInput, searchResults);
   container.appendChild(header);
-
-  wireSearch(header);
+  wireSearch(searchInput, searchResults);
 
   if (parents.length) {
-    const row = document.createElement("div");
-    row.className = "tree-row tree-row-parents";
-    row.innerHTML = `<div class="tree-row-label">Pais</div>`;
-    const cards = document.createElement("div");
-    cards.className = "tree-row-cards";
-    for (const p of parents) cards.appendChild(personCard(p, "relative"));
-    row.appendChild(cards);
-    container.appendChild(row);
-
-    const connector = document.createElement("div");
-    connector.className = "tree-connector";
-    container.appendChild(connector);
+    const cards = h("div", { class: "tree-row-cards" }, ...parents.map((p) => personCard(p, "relative")));
+    container.appendChild(h("div", { class: "tree-row tree-row-parents" }, h("div", { class: "tree-row-label" }, "Pais"), cards));
+    container.appendChild(h("div", { class: "tree-connector" }));
   }
 
-  const focusRow = document.createElement("div");
-  focusRow.className = "tree-row tree-row-focus";
-  const focusCards = document.createElement("div");
-  focusCards.className = "tree-row-cards";
-  focusCards.appendChild(personCard(person, "focus"));
-  if (activeUnion.spouse) focusCards.appendChild(personCard(activeUnion.spouse, "relative"));
-  focusRow.appendChild(focusCards);
-  container.appendChild(focusRow);
+  const focusCards = [personCard(person, "focus")];
+  if (activeUnion.spouse) focusCards.push(personCard(activeUnion.spouse, "relative"));
+  container.appendChild(h("div", { class: "tree-row tree-row-focus" }, h("div", { class: "tree-row-cards" }, ...focusCards)));
 
   if (unions.length > 1) {
-    const unionPicker = document.createElement("div");
-    unionPicker.className = "union-picker";
-    unionPicker.innerHTML =
-      `<span class="hint">${unions.length} uniões conhecidas: </span>` +
-      unions
-        .map(
-          (u, i) =>
-            `<button type="button" class="union-btn${i === 0 ? " active" : ""}" data-idx="${i}">${
-              u.spouse ? escapeHtml(fullName(u.spouse)) : "Cônjuge desconhecido"
-            }</button>`
-        )
-        .join(" ");
-    container.appendChild(unionPicker);
-    unionPicker.addEventListener("click", (e) => {
-      const btn = e.target.closest(".union-btn");
-      if (!btn) return;
-      const idx = parseInt(btn.dataset.idx, 10);
-      renderChildren(container, unions[idx].children, true);
-      unionPicker.querySelectorAll(".union-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-    });
+    const buttons = unions.map((u, i) =>
+      h(
+        "button",
+        {
+          type: "button",
+          class: `union-btn${i === 0 ? " active" : ""}`,
+          dataset: { idx: String(i) },
+          onclick: (e) => {
+            renderChildren(container, unions[i].children, true);
+            container.querySelectorAll(".union-btn").forEach((b) => b.classList.remove("active"));
+            e.currentTarget.classList.add("active");
+          },
+        },
+        u.spouse ? fullName(u.spouse) : "Cônjuge desconhecido"
+      )
+    );
+    container.appendChild(
+      h("div", { class: "union-picker" }, h("span", { class: "hint" }, `${unions.length} uniões conhecidas: `), ...buttons)
+    );
   }
 
   if (siblings.length) {
-    const row = document.createElement("div");
-    row.className = "tree-row tree-row-siblings";
-    row.innerHTML = `<div class="tree-row-label">Irmãos (${siblings.length})</div>`;
-    const cards = document.createElement("div");
-    cards.className = "tree-row-cards tree-row-scroll";
-    for (const s of siblings) cards.appendChild(personCard(s, "relative"));
-    row.appendChild(cards);
-    container.appendChild(row);
+    const cards = h("div", { class: "tree-row-cards tree-row-scroll" }, ...siblings.map((s) => personCard(s, "relative")));
+    container.appendChild(
+      h("div", { class: "tree-row tree-row-siblings" }, h("div", { class: "tree-row-label" }, `Irmãos (${siblings.length})`), cards)
+    );
   }
 
   renderChildren(container, activeUnion.children, false);
@@ -90,19 +74,14 @@ export async function renderTreeView(container, personId) {
 
 function renderChildren(container, children, replace) {
   const existing = container.querySelector(".tree-row-children");
+  const existingConnector = existing?.previousElementSibling;
   if (existing) existing.remove();
+  if (existingConnector?.classList.contains("tree-connector")) existingConnector.remove();
   if (!children.length) return;
 
-  const connector = document.createElement("div");
-  connector.className = "tree-connector";
-
-  const row = document.createElement("div");
-  row.className = "tree-row tree-row-children";
-  row.innerHTML = `<div class="tree-row-label">Filhos (${children.length})</div>`;
-  const cards = document.createElement("div");
-  cards.className = "tree-row-cards tree-row-scroll";
-  for (const c of children) cards.appendChild(personCard(c, "relative"));
-  row.appendChild(cards);
+  const connector = h("div", { class: "tree-connector" });
+  const cards = h("div", { class: "tree-row-cards tree-row-scroll" }, ...children.map((c) => personCard(c, "relative")));
+  const row = h("div", { class: "tree-row tree-row-children" }, h("div", { class: "tree-row-label" }, `Filhos (${children.length})`), cards);
 
   const anchor = container.querySelector(".union-picker") || container.querySelector(".tree-row-siblings");
   if (anchor) {
@@ -119,32 +98,29 @@ export function invalidatePeopleCache() {
   allPeopleCache = null;
 }
 
-function wireSearch(header) {
-  const input = header.querySelector("#tree-search-input");
-  const results = header.querySelector("#tree-search-results");
-
+function wireSearch(input, results) {
   input.addEventListener("input", async () => {
     const q = input.value.trim().toLowerCase();
-    if (q.length < 2) {
-      results.innerHTML = "";
-      return;
-    }
+    clear(results);
+    if (q.length < 2) return;
     if (!allPeopleCache) allPeopleCache = await getAllPeople();
-    const matches = allPeopleCache
-      .filter((p) => fullName(p).toLowerCase().includes(q))
-      .slice(0, 12);
+    const matches = allPeopleCache.filter((p) => fullName(p).toLowerCase().includes(q)).slice(0, 12);
 
-    results.innerHTML = matches
-      .map((p) => {
-        const safeId = escapeHtml(p.id);
-        return `<div class="search-hit" data-id="${safeId}">${escapeHtml(fullName(p))} <span class="hint">#${safeId}</span></div>`;
-      })
-      .join("");
-  });
-
-  results.addEventListener("click", (e) => {
-    const hit = e.target.closest(".search-hit");
-    if (!hit) return;
-    window.location.hash = `#/tree/${hit.dataset.id}`;
+    for (const p of matches) {
+      results.appendChild(
+        h(
+          "div",
+          {
+            class: "search-hit",
+            dataset: { id: p.id },
+            onclick: () => {
+              window.location.hash = `#/tree/${p.id}`;
+            },
+          },
+          `${fullName(p)} `,
+          h("span", { class: "hint" }, `#${p.id}`)
+        )
+      );
+    }
   });
 }
