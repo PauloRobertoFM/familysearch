@@ -43,6 +43,9 @@ export function parseGedcom(text) {
 
   let current = null; // { type: 'INDI' | 'FAM' | 'SOUR', id }
   let level1Tag = null;
+  let nameAssigned = false; // some exports repeat "1 NAME" with just a married surname,
+  // no slashes (e.g. a second "1 NAME MIGLIOLI" after "1 NAME ADELIA /Rodrigues/") —
+  // only the first NAME line is the reliable given+surname pair, so later ones are ignored.
 
   for (const raw of lines) {
     const line = raw.trimEnd();
@@ -58,6 +61,7 @@ export function parseGedcom(text) {
     if (level === 0) {
       current = null;
       level1Tag = null;
+      nameAssigned = false;
       if (pointer && tag === "INDI") {
         current = { type: "INDI", id: pointer };
         people.set(pointer, newPerson(pointer));
@@ -77,7 +81,8 @@ export function parseGedcom(text) {
       const p = people.get(current.id);
       if (level === 1) {
         level1Tag = tag;
-        if (tag === "NAME") {
+        if (tag === "NAME" && !nameAssigned) {
+          nameAssigned = true;
           const nm = value.match(/^([^/]*)\/([^/]*)\/?\s*(.*)$/);
           if (nm) {
             p.givenName = nm[1].trim();
